@@ -16,11 +16,13 @@ labels: corresponding legend labels
 
         pyplot.legend(self.labels)
 
-        pyplot.show()
-
     #Class initialisation
     def __init__(self, name, data, labels):
         self.name = name
         self.data = data
         self.labels = labels
         self.plot()
+
+#Function to show plots all at once after the Figplot class has finished being called
+def showplot():
+    pyplot.show()
