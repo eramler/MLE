@@ -10,6 +10,7 @@ Order of parameters: [alpha, beta, gamma, delta, omega]
         if mode == 'simulated':
             epsilon = numpy.random.normal(0, 1, 1)
         else:
+            #########################
             self.error[i-1] = (self.pair.data[i-1] - self.alpha*self.act_h[i-1])/numpy.sqrt(self.act_h[i-1])
             epsilon = self.error[i-1]
         h_i = self.omega + self.beta * h + self.delta * (epsilon - self.gamma * numpy.sqrt(h)) ** 2
@@ -33,11 +34,16 @@ Order of parameters: [alpha, beta, gamma, delta, omega]
             self.sim_R[i] = rand * numpy.sqrt(self.sim_h[i]) + self.alpha * self.sim_h[i]
 
     #Function to calculate the log-likelihood from the simulated and actual data
-    def loglikelihood(self):
+    def LogL(self, params):
+        #self.alpha = params[0]
+        #self.beta = params[1]
+        #self.gamma = params[2]
+        #self.delta = params[3]
+        #self.omega = params[4]
         for i in range(0, len(self.pair.data)-1):
             #Minus sign, to allow minimise negative function instead of maximising regular function
             self.LL = self.LL - 0.5 * (numpy.log(2*numpy.pi) + numpy.log(self.act_h[i]) + self.error[i]**2)
-        #print(self.LL)
+        print(self.LL)
         return self.LL
 
     #Class initialisation
@@ -60,4 +66,6 @@ Order of parameters: [alpha, beta, gamma, delta, omega]
         self.simulated_h()
         self.simulated_R()
         self.actual_h()
-        self.loglikelihood()
+        self.LogL(params)
+        #params[0] = 0.02
+        #self.LogL(params)
