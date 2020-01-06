@@ -4,15 +4,16 @@ import class_ngarch
 class Optimise(class_ngarch.NGARCH):
 
     def minimise(self):
+        #defines function to be minimised, and parameters to be varied
         m = iminuit.Minuit(self.LogL, 
                                 alpha = self.params[0],
                                 error_alpha = self.params[0] / 10,
-                                limit_alpha = (0, 20),
+                                limit_alpha = (0, 100),
                                 fix_alpha = False,
 
                                 beta = self.params[1],
                                 error_beta = self.params[1] / 10,
-                                limit_beta = (0, 10),
+                                limit_beta = (0, 100),
                                 fix_beta = False,
 
                                 gamma = self.params[2],
@@ -27,20 +28,27 @@ class Optimise(class_ngarch.NGARCH):
 
                                 omega = self.params[4],
                                 error_omega = self.params[4] / 10,
-                                limit_omega = (0.00000001, 1),
+                                limit_omega = (0, 1),
                                 fix_omega = False,
                                         
                                 throw_nan = True,
-                                pedantic = True
+                                pedantic = True,
+                                print_level = 1
                                         )
+        #runs minimiser and prints the optimised values
         m.migrad()
-        self.fitted_params = m.values
         print(m.values)
-        
+        print(m.fval)
+        #reruns minimisation from the fitted parameters until lowest LL value found
+        if m.fval < self.lowest_LL:
+            self.lowest_LL = m.fval
+            self.fitted_params = [m.values[0], m.values[1], m.values[2], m.values[3], m.values[4]]
+            self.params = self.fitted_params
+            self.minimise()
 
-
+    #Class initialisation
     def __init__(self, pair, params, steps):
         class_ngarch.NGARCH.__init__(self, pair, params, steps)
         self.params = params
-
+        self.lowest_LL = 10000000 
         self.minimise()

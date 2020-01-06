@@ -13,9 +13,9 @@ class CurrencyPair:
 
     #Function for cleaning the data, checking for NaN and infinities, sets to zero
     def dataclean(self):
-        for r in range(0, len(self.data)):
-            if math.isnan(self.data[r]) == True or math.isinf(self.data[r]) == True:
-                self.data[r] = 0.0
+        for i in range(0, len(self.data)):
+            if math.isnan(self.data[i]) == True or math.isinf(self.data[i]) == True:
+                self.data[i] = 0.0
 
     #Class initialisation
     def __init__(self, name):
