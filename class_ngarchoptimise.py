@@ -8,12 +8,12 @@ class Optimise(class_ngarch.NGARCH):
         m = iminuit.Minuit(self.LogL, 
                                 alpha = self.params[0],
                                 error_alpha = self.params[0] / 10,
-                                limit_alpha = (0, 100),
+                                limit_alpha = (0, 1),
                                 fix_alpha = False,
 
                                 beta = self.params[1],
                                 error_beta = self.params[1] / 10,
-                                limit_beta = (0, 100),
+                                limit_beta = (0, 1),
                                 fix_beta = False,
 
                                 gamma = self.params[2],
@@ -23,7 +23,7 @@ class Optimise(class_ngarch.NGARCH):
 
                                 delta = self.params[3],
                                 error_delta = self.params[3] / 10,
-                                limit_delta = (0, 1),
+                                limit_delta = (-100, 100),
                                 fix_delta = False,
 
                                 omega = self.params[4],
@@ -38,6 +38,7 @@ class Optimise(class_ngarch.NGARCH):
         #runs minimiser and prints the optimised values
         m.migrad()
         print(m.values)
+        print(m.errors)
         print(m.fval)
         #reruns minimisation from the fitted parameters until lowest LL value found
         if m.fval < self.lowest_LL:
@@ -45,6 +46,8 @@ class Optimise(class_ngarch.NGARCH):
             self.fitted_params = [m.values[0], m.values[1], m.values[2], m.values[3], m.values[4]]
             self.params = self.fitted_params
             self.minimise()
+
+        #m.draw_contour('alpha', 'gamma')
 
     #Class initialisation
     def __init__(self, pair, params, steps):

@@ -10,9 +10,9 @@ Order of parameters: [alpha, beta, gamma, delta, omega]
         if mode == 'simulated':
             epsilon = numpy.random.normal(0, 1, 1)
         else:
-            self.error[i-1] = (self.pair.data[i-1] - self.alpha*self.act_h[i-1])/numpy.sqrt(self.act_h[i-1])
+            self.error[i-1] = (self.pair.data[i-1] - self.delta*self.act_h[i-1])/numpy.sqrt(self.act_h[i-1])
             epsilon = self.error[i-1]
-        h_i = self.omega + self.beta * h + self.delta * (epsilon - self.gamma * numpy.sqrt(h)) ** 2
+        h_i = self.omega + self.alpha * (epsilon + self.gamma * numpy.sqrt(h)) ** 2 + self.beta * h
         return h_i
 
     #Function for calculating the actual variance (volatility) h_act
@@ -26,12 +26,12 @@ Order of parameters: [alpha, beta, gamma, delta, omega]
         self.sim_h[0] = self.omega
         for i in range(1, len(self.sim_h)):
             self.sim_h[i] = self.calculate_h(self.sim_h[i-1], i, 'simulated')
-            
+
     #Function for transforming the volatility into the log returns R
     def simulated_R(self):
         for i in range(0, len(self.sim_h)):
             rand = numpy.random.normal(0, 1, 1)
-            self.sim_R[i] = rand * numpy.sqrt(self.sim_h[i]) + self.alpha * self.sim_h[i]
+            self.sim_R[i] = rand * numpy.sqrt(self.sim_h[i]) + self.delta * self.sim_h[i]
 
     #Function to calculate the negative log-likelihood, which is to be minimised
     def LogL(self, alpha, beta, gamma, delta, omega):
@@ -48,14 +48,14 @@ Order of parameters: [alpha, beta, gamma, delta, omega]
         Total_LL = numpy.nansum(self.LL)
 
         #Penalty term to enforce parameter bounds
-        factor = 1.0
+        penalty = 0.0
         crit = self.beta + self.alpha * self.gamma ** 2
         if crit > 1:
-            factor = numpy.exp((crit - 1) * 10) * numpy.sign(Total_LL)
+            penalty = numpy.exp((crit - 1) * 10000) - 1
         elif crit < 0:
-            factor = numpy.exp(-10 * crit) * numpy.sign(Total_LL)
+            penalty = numpy.exp(-10000 * crit) - 1
 
-        weighted_LL = factor * Total_LL
+        weighted_LL = Total_LL + penalty
         if weighted_LL > 1000000:
             weighted_LL = 1000000
 
