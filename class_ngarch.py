@@ -10,7 +10,7 @@ Order of parameters: [alpha, beta, gamma, delta, omega]
         if mode == 'simulated':
             epsilon = numpy.random.normal(0, 1, 1)
         else:
-            self.error[i-1] = (self.pair.data[i-1] - self.delta*self.act_h[i-1])/numpy.sqrt(self.act_h[i-1])
+            self.error[i-1] = (self.pair.data[self.read_start + i-1] - self.delta*self.act_h[i-1])/numpy.sqrt(self.act_h[i-1])
             epsilon = self.error[i-1]
         h_i = self.omega + self.alpha * (epsilon + self.gamma * numpy.sqrt(h)) ** 2 + self.beta * h
         return h_i
@@ -43,7 +43,7 @@ Order of parameters: [alpha, beta, gamma, delta, omega]
         self.omega = omega
         self.actual_h()
 
-        for i in range(0, len(self.pair.data)):
+        for i in range(0, self.read_steps):
             self.LL[i] = 0.5 * (numpy.log(2*numpy.pi) + numpy.log(self.act_h[i]) + self.error[i]**2)
         Total_LL = numpy.nansum(self.LL)
 
@@ -65,20 +65,24 @@ Order of parameters: [alpha, beta, gamma, delta, omega]
         return weighted_LL
 
     #Class initialisation
-    def __init__(self, pair, params, steps):
+    def __init__(self, pair, params, read_start, read_steps, forecast_start, forecast_steps):
         self.pair = pair
-        self.steps = steps
         self.alpha = params[0]
         self.beta = params[1]
         self.gamma = params[2]
         self.delta = params[3]
         self.omega = params[4]
 
-        self.act_h = numpy.zeros(len(self.pair.data))
-        self.error = numpy.zeros(len(self.pair.data))
-        self.sim_h = numpy.zeros(self.steps)
-        self.sim_R = numpy.zeros(self.steps)
+        self.read_start = read_start
+        self.read_steps = read_steps
+        self.forecast_start = forecast_start
+        self.forecast_steps = forecast_steps
 
+        self.act_h = numpy.zeros(self.read_steps)
+        self.error = numpy.zeros(self.read_steps)
+        self.sim_h = numpy.zeros(self.forecast_steps)
+        self.sim_R = numpy.zeros(self.forecast_steps)
+
+        self.actual_h()
         self.simulated_h()
         self.simulated_R()
-        self.actual_h()
