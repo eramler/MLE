@@ -8,7 +8,7 @@ Order of parameters: [alpha, beta, gamma, delta, omega]
     #Function for calulating the volatility, with different epsilon definitions for simulated or actual
     def calculate_h(self, h, i, mode):
         if mode == 'simulated':
-            epsilon = numpy.random.normal(0, 1, 1)
+            epsilon = self.rand_values[i-1]
         else:
             self.error[i-1] = (self.pair.data[self.read_start + i-1] - self.delta*self.act_h[i-1])/numpy.sqrt(self.act_h[i-1])
             epsilon = self.error[i-1]
@@ -22,16 +22,19 @@ Order of parameters: [alpha, beta, gamma, delta, omega]
             self.act_h[i] = self.calculate_h(self.act_h[i-1], i, 'actual')
 
     #Function for simulating the variance (volatility) h_sim
-    def simulated_h(self):
+    def simulated_h(self, rand_seed=0):
         self.sim_h[0] = self.omega
+        numpy.random.seed(rand_seed)
+        self.rand_values = numpy.random.normal(0, 1, self.forecast_steps-1)
         for i in range(1, len(self.sim_h)):
             self.sim_h[i] = self.calculate_h(self.sim_h[i-1], i, 'simulated')
 
     #Function for transforming the volatility into the log returns R
-    def simulated_R(self):
+    def simulated_R(self, rand_seed=10000000):
+        numpy.random.seed(rand_seed)
+        self.rand_values2 = numpy.random.normal(0, 1, self.forecast_steps)
         for i in range(0, len(self.sim_h)):
-            rand = numpy.random.normal(0, 1, 1)
-            self.sim_R[i] = rand * numpy.sqrt(self.sim_h[i]) + self.delta * self.sim_h[i]
+            self.sim_R[i] = self.rand_values2[i] * numpy.sqrt(self.sim_h[i]) + self.delta * self.sim_h[i]
 
     #Function to calculate the negative log-likelihood, which is to be minimised
     def LogL(self, alpha, beta, gamma, delta, omega):
@@ -65,7 +68,7 @@ Order of parameters: [alpha, beta, gamma, delta, omega]
         return weighted_LL
 
     #Class initialisation
-    def __init__(self, pair, params, read_start, read_steps, forecast_start, forecast_steps):
+    def __init__(self, pair, params, read_start=0, read_steps='MAX', forecast_start=0, forecast_steps='MAX'):
         self.pair = pair
         self.alpha = params[0]
         self.beta = params[1]
@@ -74,9 +77,15 @@ Order of parameters: [alpha, beta, gamma, delta, omega]
         self.omega = params[4]
 
         self.read_start = read_start
-        self.read_steps = read_steps
         self.forecast_start = forecast_start
-        self.forecast_steps = forecast_steps
+        if read_steps == 'MAX':
+            self.read_steps = len(self.pair.data)
+        else:
+            self.read_steps = read_steps
+        if forecast_steps == 'MAX':
+            self.forecast_steps = len(self.pair.data)
+        else:
+            self.forecast_steps = forecast_steps
 
         self.act_h = numpy.zeros(self.read_steps)
         self.error = numpy.zeros(self.read_steps)

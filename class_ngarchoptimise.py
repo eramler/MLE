@@ -50,7 +50,7 @@ class Optimise(class_ngarch.NGARCH):
         #m.draw_contour('alpha', 'gamma')
 
     #Class initialisation
-    def __init__(self, pair, params, read_start, read_steps, forecast_start, forecast_steps):
+    def __init__(self, pair, params, read_start=0, read_steps='MAX', forecast_start=0, forecast_steps='MAX'):
         class_ngarch.NGARCH.__init__(self, pair, params, read_start, read_steps, forecast_start, forecast_steps)
         self.params = params
         self.lowest_LL = 10000000 
