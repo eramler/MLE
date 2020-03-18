@@ -1,6 +1,7 @@
 import hdf5storage
 import math
 import os
+import numpy
 
 class CurrencyPair:
 
@@ -10,6 +11,7 @@ class CurrencyPair:
         filename = os.path.join(directory, 'data/'+self.name+'.mat')
 
         self.data = hdf5storage.loadmat(filename)['ret']
+        self.data = self.data.flatten()
 
     #Function for cleaning the data, checking for NaN and infinities, sets to zero
     def dataclean(self):
