@@ -6,6 +6,7 @@ import iminuit
 
 class LeastSquares(class_ngarch.NGARCH):
     def rand_params(self):
+        self.randparams = numpy.zeros((self.n_randparams, 5))
         #set limits for the parameters to be varied within
         self.alphamin, self.alphamax = 0, 1e-4
         self.betamin, self.betamax = 0, 1
@@ -25,41 +26,28 @@ class LeastSquares(class_ngarch.NGARCH):
             numpy.random.seed(400000+i)
             self.randparams[i,4] = numpy.random.uniform(self.omegamin,self.omegamax)
 
-
     def run_simulations(self):
         #create an array to store the values of the mean R values for each set of random parameters
-        self.R_means = numpy.zeros((self.n_randparams, self.run_steps))
-        self.R_stdevs = numpy.zeros((self.n_randparams, self.run_steps))
+        self.R_means = numpy.zeros((self.n_randparams, self.read_steps))
+        self.R_stdevs = numpy.zeros((self.n_randparams, self.read_steps))
         for i in range(0, self.n_randparams):
-            print(i)
+            #print(i)
             #initialise the ngarch class with a set of random parameters
-            class_ngarch.NGARCH.__init__(self, self.pair, self.randparams[i,:])
+            class_ngarch.NGARCH.__init__(self, self.pair, self.randparams[i,:], self.read_start, self.read_steps, self.read_start, self.read_steps)
             #array to temporarily hold the R values for each simulation
-            R_simvalues = numpy.zeros((self.n_simulations, self.run_steps))
+            R_simvalues = numpy.zeros((self.n_simulations, self.read_steps))
             for j in range(0, self.n_simulations):
                 self.simulated_h(rand_seed = j)
                 self.simulated_R(rand_seed = 10000000 + j)
-                R_simvalues[j,:] = self.sim_R[0:self.run_steps]
+                R_simvalues[j,:] = self.sim_R
             #calculate the mean and standard deviation for R values for this iteration of random parameters
-            for k in range(0, self.run_steps):
-                self.R_means[i,k] = numpy.sum(R_simvalues[:,k]) / self.n_simulations
-                self.R_stdevs[i,k] = numpy.sqrt(numpy.sum((R_simvalues[:,k] - self.R_means[i,k])**2) / self.n_simulations)
+            for k in range(0, self.read_steps):
+                self.R_means[i,k] = numpy.nansum(R_simvalues[:,k]) / self.n_simulations
+                #self.R_means[i,k] = numpy.sum(R_simvalues[:,k]) / self.n_simulations
+                self.R_stdevs[i,k] = numpy.sqrt(numpy.nansum((R_simvalues[:,k] - self.R_means[i,k])**2) / self.n_simulations)
+                #self.R_stdevs[i,k] = numpy.sqrt(numpy.sum((R_simvalues[:,k] - self.R_means[i,k])**2) / self.n_simulations)
         #print(self.R_means)
         #print(self.R_stdevs)
-
-    def squared_residuals(self):
-        self.sqres_means = numpy.zeros((self.n_randparams, self.run_steps))
-        self.sqres_Rfast = numpy.zeros((self.n_randparams, self.run_steps))
-        for j in range(0, self.run_steps):
-            self.sqres_means[:,j] = (self.R_means[:,j] - self.pair.data[j])**2
-            self.sqres_Rfast[:,j] = (self.Rfast_values[:,j] - self.pair.data[j])**2
-            for i in range(0, self.n_randparams): 
-                if self.sqres_means[i,j] > 1000:
-                    self.sqres_means[i,j] = 1000
-                if self.sqres_Rfast[i,j] > 1000:
-                    self.sqres_Rfast[i,j] = 1000
-        self.Rfast_sqres_min_index = numpy.argmin(self.sqres_Rfast[:,3])
-        #print(self.sqresiduals)
 
     def optimise_Rfast(self):
         #for clarity
@@ -68,21 +56,23 @@ class LeastSquares(class_ngarch.NGARCH):
         self.gammas = self.randparams[:,2]
         self.deltas = self.randparams[:,3]
         self.omegas = self.randparams[:,4]
-        self.Rfast_values = numpy.zeros((self.n_randparams, self.run_steps))
+        self.Rfast_values = numpy.zeros((self.n_randparams, self.read_steps))
 
         bin_params = numpy.zeros(21)
         bin_param_step = numpy.ones(21)
-        bin_param_names = ['v_c','v_A','v_B','v_G','v_D','v_O','v_AA','v_AB','v_AG','v_AD','v_AO','v_BB','v_BG','v_BD','v_BO','v_GG','v_GD','v_GO','v_DD','v_DO','v_OO']
-        self.bin_i = 3
-        #self.calc_Rfast(3, bin_params)
+        self.bin_param_values = numpy.zeros((self.read_steps,21))
+        self.bin_param_names = ['v_c','v_A','v_B','v_G','v_D','v_O','v_AA','v_AB','v_AG','v_AD','v_AO','v_BB','v_BG','v_BD','v_BO','v_GG','v_GD','v_GO','v_DD','v_DO','v_OO']
+        self.bin_i = 0
         #m = iminuit.Minuit(self.calc_Rfast, forced_parameters=bin_param_names, use_array_call=True)
-        m = iminuit.Minuit.from_array_func(self.calc_Rfast, bin_params, error=bin_param_step, name=bin_param_names)
-        for i in range(0, self.run_steps):
-            self.bin_i = i
+        m = iminuit.Minuit.from_array_func(self.calc_Rfast, bin_params, error=bin_param_step, name=self.bin_param_names, errordef=1)
+        for i in range(0, self.read_steps):
             m.migrad()
-            print(m.fval)
-            print(m.values)
-        print(self.Rfast_values)
+            #print(m.fval)
+            self.bin_param_values[i,:] = m.args
+            self.bin_i = self.bin_i + 1
+            #print(m.values)
+        #print(self.Rfast_values)
+        #print(self.bin_param_values)
 
     def calc_Rfast(self, bin_params):
         #Setting up the parameters to be optimised in the 'fast' simulation
@@ -101,22 +91,88 @@ class LeastSquares(class_ngarch.NGARCH):
         for k in range(0, self.n_randparams):
             Rfast_chivalues[k] = ((self.Rfast_values[k,self.bin_i] - self.R_means[k,self.bin_i]) / self.R_stdevs[k,self.bin_i]) ** 2 / self.n_randparams
         #print(Rfast_chivalues)
-        Rfast_totalchi = numpy.sum(Rfast_chivalues)
-        #print(Rfast_totalchi)
+        #Rfast_totalchi = numpy.sum(Rfast_chivalues)
+        Rfast_totalchi = numpy.nansum(Rfast_chivalues)
         return Rfast_totalchi
 
+    def squared_residuals(self):
+        self.sqres_means = numpy.zeros((self.n_randparams, self.read_steps))
+        self.sqres_Rfast = numpy.zeros((self.n_randparams, self.read_steps))
+        for j in range(0, self.read_steps):
+            self.sqres_means[:,j] = (self.R_means[:,j] - self.pair.data[j-self.read_start])**2
+            self.sqres_Rfast[:,j] = (self.Rfast_values[:,j] - self.pair.data[j-self.read_start])**2
+            for i in range(0, self.n_randparams): 
+                if self.sqres_means[i,j] > 1000:
+                    self.sqres_means[i,j] = 1000
+                if self.sqres_Rfast[i,j] > 1000:
+                    self.sqres_Rfast[i,j] = 1000
+        self.Rfast_sqres_min_index = numpy.argmin(self.sqres_Rfast[:,3])
+        #print(self.sqresiduals)
 
-    def __init__(self, pair, n_randparams=10, n_simulations=10, run_steps='MAX'):
+    def optimise_params(self):
+        self.v_c, self.v_A, self.v_B = self.bin_param_values[:,0], self.bin_param_values[:,1], self.bin_param_values[:,2]
+        self.v_G, self.v_D, self.v_O = self.bin_param_values[:,3], self.bin_param_values[:,4], self.bin_param_values[:,5]
+        self.v_AA, self.v_AB, self.v_AG = self.bin_param_values[:,6], self.bin_param_values[:,7], self.bin_param_values[:,8]
+        self.v_AD, self.v_AO, self.v_BB = self.bin_param_values[:,9], self.bin_param_values[:,10], self.bin_param_values[:,11]
+        self.v_BG, self.v_BD, self.v_BO = self.bin_param_values[:,12], self.bin_param_values[:,13], self.bin_param_values[:,14]
+        self.v_GG, self.v_GD, self.v_GO = self.bin_param_values[:,15], self.bin_param_values[:,16], self.bin_param_values[:,17]
+        self.v_DD, self.v_DO, self.v_OO = self.bin_param_values[:,18], self.bin_param_values[:,19], self.bin_param_values[:,20]
+
+        self.params = (1e-6, 0.5, 50, 1e-5, 1e-6)
+        m = iminuit.Minuit(self.calc_params,
+                            alpha = self.params[0],
+                            error_alpha = self.params[0] / 10,
+                            limit_alpha = (0,1),
+                            
+                            beta = self.params[1],
+                            error_beta = self.params[1] / 10,
+                            limit_beta = (0,1),
+                            
+                            gamma = self.params[2],
+                            error_gamma = self.params[2] / 10,
+                            limit_gamma = (-500, 500),
+                            
+                            delta = self.params[3],
+                            error_delta = self.params[3] / 10,
+                            limit_delta = (-100, 100),
+                            
+                            omega = self.params[4],
+                            error_omega = self.params[4] / 10,
+                            limit_omega = (0,1),
+
+                            print_level = 0,
+                            errordef=1
+                                                )
+        m.migrad()
+        self.fitted_params = [m.values[0], m.values[1], m.values[2], m.values[3], m.values[4]]
+        self.fitted_errors = [m.errors[0], m.errors[1], m.errors[2], m.errors[3], m.errors[4]]
+        #print(m.values)
+        #print(m.errors)
+
+    def calc_params(self, alpha, beta, gamma, delta, omega):
+        Rfast_binvalues = self.v_c + \
+                            alpha * (self.v_A + self.v_AA*alpha + self.v_AB*beta + self.v_AG*gamma + self.v_AD*delta + self.v_AO*omega) + \
+                            beta * (self.v_B + self.v_BB*beta + self.v_BG*gamma + self.v_BD*delta + self.v_BO*omega) + \
+                            gamma * (self.v_G + self.v_GG*gamma + self.v_GD*delta + self.v_GO*omega) + \
+                            delta * (self.v_D + self.v_DD*delta + self.v_DO*omega) + \
+                            omega * (self.v_O + self.v_OO*omega)
+
+        #diff_squared_sum = numpy.sum((Rfast_binvalues - self.pair.data[self.read_start:self.read_start+self.read_steps])**2)
+        diff_squared_sum = numpy.nansum((Rfast_binvalues - self.pair.data[self.read_start:self.read_start+self.read_steps])**2)
+        #print((alpha, beta, gamma, delta, omega))
+        #print(diff_squared_sum)
+        return diff_squared_sum
+
+    def __init__(self, pair, n_randparams=10, n_simulations=10, read_start=0, read_steps='MAX'):
         self.pair = pair
         self.n_randparams = n_randparams
         self.n_simulations = n_simulations
-        if run_steps=='MAX':
-            self.run_steps = len(self.pair.data)
+        self.read_start = read_start
+        if read_steps=='MAX':
+            self.read_steps = len(self.pair.data) - self.read_start
         else:
-            self.run_steps = run_steps
+            self.read_steps = read_steps
 
-        self.randparams = numpy.zeros((self.n_randparams, 5))
-        
         self.rand_params()
         self.run_simulations()
 
@@ -124,106 +180,4 @@ class LeastSquares(class_ngarch.NGARCH):
 
         self.squared_residuals()
 
-
-pair = class_currencypair.CurrencyPair('EURGBP')
-x = LeastSquares(pair, n_randparams=1000, n_simulations=100, run_steps=5)
-
-pyplot.figure()
-pyplot.plot(x.randparams[:,0], x.Rfast_values[:,3], label='Rfast values', linestyle='', marker='o')
-#pyplot.plot(x.randparams[:,0], x.R_means[:,3], label='Mean R values',linestyle='', marker='o')
-pyplot.plot(x.randparams[x.Rfast_sqres_min_index,0], x.Rfast_values[x.Rfast_sqres_min_index,3], label='Minimum SqRes Value', linestyle='', marker='o')
-pyplot.legend()
-pyplot.xlabel('alpha value')
-pyplot.ylabel('R Value')
-#pyplot.show()
-
-pyplot.figure()
-pyplot.plot(x.randparams[:,1], x.Rfast_values[:,3], label='Rfast values', linestyle='', marker='o')
-#pyplot.plot(x.randparams[:,1], x.R_means[:,3], label='Mean R values',linestyle='', marker='o')
-pyplot.plot(x.randparams[x.Rfast_sqres_min_index,1], x.Rfast_values[x.Rfast_sqres_min_index,3], label='Minimum SqRes Value', linestyle='', marker='o')
-pyplot.legend()
-pyplot.xlabel('beta value')
-pyplot.ylabel('R Value')
-#pyplot.show()
-
-pyplot.figure()
-pyplot.plot(x.randparams[:,2], x.Rfast_values[:,3], label='Rfast values', linestyle='', marker='o')
-#pyplot.plot(x.randparams[:,2], x.R_means[:,3], label='Mean R values',linestyle='', marker='o')
-pyplot.plot(x.randparams[x.Rfast_sqres_min_index,2], x.Rfast_values[x.Rfast_sqres_min_index,3], label='Minimum SqRes Value', linestyle='', marker='o')
-pyplot.legend()
-pyplot.xlabel('gamma value')
-pyplot.ylabel('R Value')
-#pyplot.show()
-
-pyplot.figure()
-pyplot.plot(x.randparams[:,3], x.Rfast_values[:,3], label='Rfast values', linestyle='', marker='o')
-#pyplot.plot(x.randparams[:,3], x.R_means[:,3], label='Mean R values',linestyle='', marker='o')
-pyplot.plot(x.randparams[x.Rfast_sqres_min_index,3], x.Rfast_values[x.Rfast_sqres_min_index,3], label='Minimum SqRes Value', linestyle='', marker='o')
-pyplot.legend()
-pyplot.xlabel('delta value')
-pyplot.ylabel('R Value')
-#pyplot.show()
-
-pyplot.figure()
-pyplot.plot(x.randparams[:,4], x.Rfast_values[:,3], label='Rfast values', linestyle='', marker='o')
-#pyplot.plot(x.randparams[:,4], x.R_means[:,3], label='Mean R values',linestyle='', marker='o')
-pyplot.plot(x.randparams[x.Rfast_sqres_min_index,4], x.Rfast_values[x.Rfast_sqres_min_index,3], label='Minimum SqRes Value', linestyle='', marker='o')
-pyplot.legend()
-pyplot.xlabel('omega value')
-pyplot.ylabel('R Value')
-pyplot.show()
-
-##################################PLOTTING SQUARED RESIDUALS###################################
-
-pyplot.figure()
-pyplot.plot(x.randparams[:,0], x.sqres_Rfast[:,3], label='Rfast values', linestyle='', marker='o')
-#pyplot.plot(x.randparams[:,0], x.sqres_means[:,3], label='Mean R values',linestyle='', marker='o')
-pyplot.plot(x.randparams[x.Rfast_sqres_min_index,0], x.sqres_Rfast[x.Rfast_sqres_min_index,3], label='Minimum SqRes Value', linestyle='', marker='o')
-pyplot.legend()
-pyplot.xlabel('alpha value')
-pyplot.ylabel(r'$(R_{sim} - R_{data})^2$')
-#pyplot.show()
-
-pyplot.figure()
-pyplot.plot(x.randparams[:,1], x.sqres_Rfast[:,3], label='Rfast values', linestyle='', marker='o')
-#pyplot.plot(x.randparams[:,1], x.sqres_means[:,3], label='Mean R values',linestyle='', marker='o')
-pyplot.plot(x.randparams[x.Rfast_sqres_min_index,1], x.sqres_Rfast[x.Rfast_sqres_min_index,3], label='Minimum SqRes Value', linestyle='', marker='o')
-pyplot.legend()
-pyplot.xlabel('beta value')
-pyplot.ylabel(r'$(R_{sim} - R_{data})^2$')
-#pyplot.show()
-
-pyplot.figure()
-pyplot.plot(x.randparams[:,2], x.sqres_Rfast[:,3], label='Rfast values', linestyle='', marker='o')
-#pyplot.plot(x.randparams[:,2], x.sqres_means[:,3], label='Mean R values',linestyle='', marker='o')
-pyplot.plot(x.randparams[x.Rfast_sqres_min_index,2], x.sqres_Rfast[x.Rfast_sqres_min_index,3], label='Minimum SqRes Value', linestyle='', marker='o')
-pyplot.legend()
-pyplot.xlabel('gamma value')
-pyplot.ylabel(r'$(R_{sim} - R_{data})^2$')
-#pyplot.show()
-
-pyplot.figure()
-pyplot.plot(x.randparams[:,3], x.sqres_Rfast[:,3], label='Rfast values', linestyle='', marker='o')
-#pyplot.plot(x.randparams[:,3], x.sqres_means[:,3], label='Mean R values',linestyle='', marker='o')
-pyplot.plot(x.randparams[x.Rfast_sqres_min_index,3], x.sqres_Rfast[x.Rfast_sqres_min_index,3], label='Minimum SqRes Value', linestyle='', marker='o')
-pyplot.legend()
-pyplot.xlabel('delta value')
-pyplot.ylabel(r'$(R_{sim} - R_{data})^2$')
-#pyplot.show()
-
-pyplot.figure()
-pyplot.plot(x.randparams[:,4], x.sqres_Rfast[:,3], label='Rfast values', linestyle='', marker='o')
-#pyplot.plot(x.randparams[:,4], x.sqres_means[:,3], label='Mean R values',linestyle='', marker='o')
-pyplot.plot(x.randparams[x.Rfast_sqres_min_index,4], x.sqres_Rfast[x.Rfast_sqres_min_index,3], label='Minimum SqRes Value', linestyle='', marker='o')
-pyplot.legend()
-pyplot.xlabel('omega value')
-pyplot.ylabel(r'(R_{sim} - R_{data})^2')
-pyplot.show()
-
-
-#for i in range(0, x.n_randparams):
-#    pyplot.figure()
-#    pyplot.plot(x.R_means[i,:])
-#    pyplot.plot(x.R_means[i,:] + x.R_stdevs[i,:])
-#    pyplot.plot(x.R_means[i,:] - x.R_stdevs[i,:])
-#pyplot.show()
+        self.optimise_params()

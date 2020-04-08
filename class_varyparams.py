@@ -32,15 +32,8 @@ class VaryParams():
 
         #print(self.sampled_params)
 
-    def __init__(self, pair, params, param_errors, n_replicas):
-        self.pair = pair
+    def __init__(self, params, param_errors, n_replicas):
         self.params = params
         self.param_errors = param_errors
         self.n_replicas = n_replicas
         self.sample_params()
-
-#params = [0, 1, 2, 3, 4]
-#param_errors = [0.01, 0.1, 0.2, 0.3, 0.4]
-
-#x = VaryParams('Pair', params, param_errors)
-#print(x.sampled_params)

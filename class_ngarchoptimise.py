@@ -2,7 +2,6 @@ import iminuit
 import class_ngarch
 
 class Optimise(class_ngarch.NGARCH):
-
     def minimise(self):
         #defines function to be minimised, and parameters to be varied
         m = iminuit.Minuit(self.LogL, 
@@ -58,8 +57,6 @@ class Optimise(class_ngarch.NGARCH):
             else:
                 print('maximum number (100) of re-minimisations reached without finding a true minimum - but probably a good approximation')
 
-        
-        #m.draw_contour('alpha', 'gamma')
 
     #Class initialisation
     def __init__(self, pair, params, read_start=0, read_steps='MAX', forecast_start=0, forecast_steps='MAX'):

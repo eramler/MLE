@@ -13,6 +13,8 @@ Order of parameters: [alpha, beta, gamma, delta, omega]
             self.error[i-1] = (self.pair.data[self.read_start + i-1] - self.delta*self.act_h[i-1])/numpy.sqrt(self.act_h[i-1])
             epsilon = self.error[i-1]
         h_i = self.omega + self.alpha * (epsilon + self.gamma * numpy.sqrt(h)) ** 2 + self.beta * h
+        #if h_i > 1:
+        #    h_i = 1
         return h_i
 
     #Function for calculating the actual variance (volatility) h_act
@@ -79,7 +81,7 @@ Order of parameters: [alpha, beta, gamma, delta, omega]
         self.read_start = read_start
         self.forecast_start = forecast_start
         if read_steps == 'MAX':
-            self.read_steps = len(self.pair.data)
+            self.read_steps = len(self.pair.data) - self.read_start
         else:
             self.read_steps = read_steps
         if forecast_steps == 'MAX':

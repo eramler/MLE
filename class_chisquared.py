@@ -59,7 +59,7 @@ run_start and run_steps should normally be same as the forecast steps in the NGA
         self.reducedchi_value = numpy.sum(self.chi_values)
         print('Reduced Chi Value:', self.reducedchi_value)
 
-    def __init__(self, pair, params, run_start, run_steps, n_runs=10, showplot=False, n_histograms=3):
+    def __init__(self, pair, params, run_start, run_steps, n_runs=100, showplot=False, n_histograms=3):
         class_ngarch.NGARCH.__init__(self, pair, params, read_start=run_start, read_steps=run_steps, forecast_start=run_start, forecast_steps=run_steps)
         self.run_start = run_start
         self.run_steps = run_steps
@@ -76,3 +76,4 @@ run_start and run_steps should normally be same as the forecast steps in the NGA
             #class_figplot.Figplot(self.pair.name, [self.mean_values], ['Mean Values'], 'points', 'values')
             #class_figplot.Figplot(self.pair.name+' Chi: '+str(self.reducedchi_value), [self.stdev_values], ['Standard Deviation Values'], 'points', 'values')
             class_figplot.Figplot(self.pair.name+r' $\chi^2$: '+str(self.reducedchi_value), [self.pair.data[self.run_start:self.run_start+self.run_steps], self.mean_values, self.mean_values + self.stdev_values, self.mean_values - self.stdev_values], ['True Data', 'Simulated Mean', r'Mean + 1$\sigma$', r'Mean - 1$\sigma$'], 'Simulated Points', 'Returns')
+            #pyplot.show()
