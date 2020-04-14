@@ -8,11 +8,11 @@ class LeastSquares(class_ngarch.NGARCH):
     def rand_params(self):
         self.randparams = numpy.zeros((self.n_randparams, 5))
         #set limits for the parameters to be varied within
-        self.alphamin, self.alphamax = 0, 1e-4
+        self.alphamin, self.alphamax = 0, 1e-3
         self.betamin, self.betamax = 0, 1
         self.gammamin, self.gammamax = -500, 500
         self.deltamin, self.deltamax = -10, 10
-        self.omegamin, self.omegamax = 0, 1e-4
+        self.omegamin, self.omegamax = 0, 1e-3
         #randomly select values for each parameter within their ranges, seeds for repeatability
         for i in range(0, self.n_randparams):
             numpy.random.seed(i)
@@ -89,7 +89,7 @@ class LeastSquares(class_ngarch.NGARCH):
         
         Rfast_chivalues = numpy.zeros(self.n_randparams)
         for k in range(0, self.n_randparams):
-            Rfast_chivalues[k] = ((self.Rfast_values[k,self.bin_i] - self.R_means[k,self.bin_i]) / self.R_stdevs[k,self.bin_i]) ** 2 / self.n_randparams
+            Rfast_chivalues[k] = ((self.Rfast_values[k,self.bin_i] - self.R_means[k,self.bin_i]) / self.R_stdevs[k,self.bin_i]) ** 2
         #print(Rfast_chivalues)
         #Rfast_totalchi = numpy.sum(Rfast_chivalues)
         Rfast_totalchi = numpy.nansum(Rfast_chivalues)
@@ -158,7 +158,7 @@ class LeastSquares(class_ngarch.NGARCH):
                             omega * (self.v_O + self.v_OO*omega)
 
         #diff_squared_sum = numpy.sum((Rfast_binvalues - self.pair.data[self.read_start:self.read_start+self.read_steps])**2)
-        diff_squared_sum = numpy.nansum((Rfast_binvalues - self.pair.data[self.read_start:self.read_start+self.read_steps])**2)
+        diff_squared_sum = numpy.nansum(((Rfast_binvalues - self.pair.data[self.read_start:self.read_start+self.read_steps]) / 0.00000001)**2)
         #print((alpha, beta, gamma, delta, omega))
         #print(diff_squared_sum)
         return diff_squared_sum

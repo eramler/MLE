@@ -12,9 +12,6 @@ run_start and run_steps should normally be same as the forecast steps in the NGA
     def run_simulation(self):
         #2x2 array for each value of the forecast across the number of runs
         self.sim_values = numpy.zeros((self.run_steps, self.n_runs))
-
-        #pyplot.figure()
-
         for j in range(0, self.n_runs):
             self.simulated_h(rand_seed = j)
             self.simulated_R(rand_seed = 10000000 + j)
@@ -40,9 +37,15 @@ run_start and run_steps should normally be same as the forecast steps in the NGA
         for i in range(0, self.n_histograms):
             normal_range = numpy.linspace(self.mean_values[i] - 4*self.stdev_values[i], self.mean_values[i] + 4*self.stdev_values[i], 100)
             normal_values = scipy.stats.norm.pdf(normal_range, self.mean_values[i], self.stdev_values[i])
-            n, bins, patches = pyplot.hist(self.sim_values[i,:], 100)
 
-            scale_factor = n[49]  / normal_values[49]
+            n_bins = numpy.int(self.n_runs/100)
+            if n_bins < 20:
+                n_bins = 20
+
+            n, bins, patches = pyplot.hist(self.sim_values[i,:], n_bins)
+
+            bin_width = bins[1] - bins[0]
+            scale_factor = self.n_runs * bin_width
 
             pyplot.plot(normal_range, normal_values * scale_factor)
             pyplot.title('Binning Simulated Values: '+str(self.n_runs)+' runs')

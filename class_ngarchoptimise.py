@@ -40,7 +40,7 @@ class Optimise(class_ngarch.NGARCH):
         #print(self.iterations)
         #print(m.values)
         #print(m.errors)
-        #print(m.fval)
+        print(m.fval)
         #m.hesse()
         
         #m.get_param_states
