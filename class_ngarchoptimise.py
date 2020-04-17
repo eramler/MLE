@@ -27,7 +27,7 @@ class Optimise(class_ngarch.NGARCH):
 
                                 omega = self.params[4],
                                 error_omega = self.params[4] / 10,
-                                limit_omega = (0, 1),
+                                limit_omega = (1e-8, 1),
                                 fix_omega = False,
                                 
                                 errordef=0.5,
@@ -40,7 +40,7 @@ class Optimise(class_ngarch.NGARCH):
         #print(self.iterations)
         #print(m.values)
         #print(m.errors)
-        print(m.fval)
+        #print(m.fval)
         #m.hesse()
         
         #m.get_param_states
@@ -59,9 +59,10 @@ class Optimise(class_ngarch.NGARCH):
 
 
     #Class initialisation
-    def __init__(self, pair, params, read_start=0, read_steps='MAX', forecast_start=0, forecast_steps='MAX'):
-        class_ngarch.NGARCH.__init__(self, pair, params, read_start, read_steps, forecast_start, forecast_steps)
-        self.params = params
+    def __init__(self, pair, read_start=0, read_steps='MAX', forecast_start=0, forecast_steps='MAX'):
+        #initial parameter values
+        self.params = [1e-06, 0.5, 50, 1e-05, 1e-06]
+        class_ngarch.NGARCH.__init__(self, pair, self.params, read_start, read_steps, forecast_start, forecast_steps)
         self.lowest_LL = 10000000
         self.iterations = 0 
         self.minimise()

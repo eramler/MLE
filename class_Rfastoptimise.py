@@ -3,8 +3,10 @@ import class_ngarch
 import class_currencypair
 import matplotlib.pyplot as pyplot
 import iminuit
+from datetime import datetime
+import scipy
 
-class LeastSquares(class_ngarch.NGARCH):
+class Rfast(class_ngarch.NGARCH):
     def rand_params(self):
         self.randparams = numpy.zeros((self.n_randparams, 5))
         #set limits for the parameters to be varied within
@@ -48,6 +50,8 @@ class LeastSquares(class_ngarch.NGARCH):
                 #self.R_stdevs[i,k] = numpy.sqrt(numpy.sum((R_simvalues[:,k] - self.R_means[i,k])**2) / self.n_simulations)
         #print(self.R_means)
         #print(self.R_stdevs)
+        print('finished simulations')
+        print(datetime.now())
 
     def optimise_Rfast(self):
         #for clarity
@@ -78,14 +82,6 @@ class LeastSquares(class_ngarch.NGARCH):
         #print(self.bin_param_errors)
         #print(self.Rfast_values)
         #print(self.bin_param_values)
-
-        #self.e_c, self.e_A, self.e_B = self.bin_param_errors[:,0], self.bin_param_errors[:,1], self.bin_param_errors[:,2]
-        #self.e_G, self.e_D, self.e_O = self.bin_param_errors[:,3], self.bin_param_errors[:,4], self.bin_param_errors[:,5]
-        #self.e_AA, self.e_AB, self.e_AG = self.bin_param_errors[:,6], self.bin_param_errors[:,7], self.bin_param_errors[:,8]
-        #self.e_AD, self.e_AO, self.e_BB = self.bin_param_errors[:,9], self.bin_param_errors[:,10], self.bin_param_errors[:,11]
-        #self.e_BG, self.e_BD, self.e_BO = self.bin_param_errors[:,12], self.bin_param_errors[:,13], self.bin_param_errors[:,14]
-        #self.e_GG, self.e_GD, self.e_GO = self.bin_param_errors[:,15], self.bin_param_errors[:,16], self.bin_param_errors[:,17]
-        #self.e_DD, self.e_DO, self.e_OO = self.bin_param_errors[:,18], self.bin_param_errors[:,19], self.bin_param_errors[:,20]
 
     def calc_Rfast(self, bin_params):
         #Setting up the parameters to be optimised in the 'fast' simulation
@@ -148,7 +144,6 @@ class LeastSquares(class_ngarch.NGARCH):
         #print(m.fval)
         #print(m.values)
         #print(m.errors)
-        
 
     def calc_params(self, alpha, beta, gamma, delta, omega):
         Rfast_binvalues = self.v_c + \
@@ -157,13 +152,6 @@ class LeastSquares(class_ngarch.NGARCH):
                             gamma * (self.v_G + self.v_GG*gamma + self.v_GD*delta + self.v_GO*omega) + \
                             delta * (self.v_D + self.v_DD*delta + self.v_DO*omega) + \
                             omega * (self.v_O + self.v_OO*omega)
-
-#        Rfast_binerrors = numpy.sqrt( (self.e_c)**2 + \
-#                            (alpha**2) * ((self.e_A)**2 + (self.e_AA*alpha)**2 + (self.e_AB*beta)**2 + (self.e_AG*gamma)**2 + (self.e_AD*delta)**2 + (self.e_AO*omega)**2) + \
-#                            (beta**2) * ((self.e_B)**2 + (self.e_BB*beta)**2 + (self.e_BG*gamma)**2 + (self.e_BD*delta)**2 + (self.e_BO*omega)**2) + \
-#                            (gamma**2) * ((self.e_G)**2 + (self.e_GG*gamma)**2 + (self.e_GD*delta)**2 + (self.e_GO*omega)**2) + \
-#                            (delta**2) * ((self.e_D)**2 + (self.e_DD*delta)**2 + (self.e_DO*omega)**2) + \
-#                            (omega**2) * ((self.e_O)**2 + (self.e_OO*omega)**2)    )
         
         Rfast_chi_sum = numpy.nansum((self.pair.data[self.read_start:self.read_start+self.read_steps] - Rfast_binvalues)**2)
         
@@ -183,17 +171,78 @@ class LeastSquares(class_ngarch.NGARCH):
         return weighted_Rfast_chi_sum
 
     def calc_param_errors(self):
-        n_replicas = 100
+        print('calculating errors...')
+        print(datetime.now())
+        n_replicas = 1000
         bin_param_replicas = numpy.zeros((n_replicas, self.read_steps, 21))
+        self.replica_params = numpy.zeros((n_replicas, 5))
+
         for j in range(0, self.read_steps):
             for k in range(0, 21):
                 numpy.random.seed(1000*j + k)
                 bin_param_replicas[:,j,k] = numpy.random.uniform(low=(self.bin_param_values[j,k]-self.bin_param_errors[j,k]), high=(self.bin_param_values[j,k]+self.bin_param_errors[j,k]), size=n_replicas)
 
-        #for i in range(0, n_replicas):
+        for i in range(0, n_replicas):
+            self.v_c, self.v_A, self.v_B = bin_param_replicas[i,:,0], bin_param_replicas[i,:,1], bin_param_replicas[i,:,2]
+            self.v_G, self.v_D, self.v_O = bin_param_replicas[i,:,3], bin_param_replicas[i,:,4], bin_param_replicas[i,:,5]
+            self.v_AA, self.v_AB, self.v_AG = bin_param_replicas[i,:,6], bin_param_replicas[i,:,7], bin_param_replicas[i,:,8]
+            self.v_AD, self.v_AO, self.v_BB = bin_param_replicas[i,:,9], bin_param_replicas[i,:,10], bin_param_replicas[i,:,11]
+            self.v_BG, self.v_BD, self.v_BO = bin_param_replicas[i,:,12], bin_param_replicas[i,:,13], bin_param_replicas[i,:,14]
+            self.v_GG, self.v_GD, self.v_GO = bin_param_replicas[i,:,15], bin_param_replicas[i,:,16], bin_param_replicas[i,:,17]
+            self.v_DD, self.v_DO, self.v_OO = bin_param_replicas[i,:,18], bin_param_replicas[i,:,19], bin_param_replicas[i,:,20]
 
+            r = iminuit.Minuit(self.calc_params,
+                            alpha = self.initial_params[0],
+                            error_alpha = self.initial_params[0] / 10,
+                            limit_alpha = (0,1),
+                            
+                            beta = self.initial_params[1],
+                            error_beta = self.initial_params[1] / 10,
+                            limit_beta = (0,1),
+                            
+                            gamma = self.initial_params[2],
+                            error_gamma = self.initial_params[2] / 10,
+                            limit_gamma = (-500, 500),
+                            
+                            delta = self.initial_params[3],
+                            error_delta = self.initial_params[3] / 10,
+                            limit_delta = (-100, 100),
+                            
+                            omega = self.initial_params[4],
+                            error_omega = self.initial_params[4] / 10,
+                            limit_omega = (1e-8,1),
 
+                            print_level = 0,
+                            errordef=1
+                                                )
+            r.migrad()
+            #print(r.values)
+            self.replica_params[i,:] = [r.values[0], r.values[1], r.values[2], r.values[3], r.values[4]]
 
+        replica_means = numpy.zeros(5)
+        replica_errors = numpy.zeros(5)
+        normal_range = numpy.zeros(5)
+        normal_values = numpy.zeros(5)
+        for i in range(0, 5):
+            replica_means[i] = numpy.sum(self.replica_params[:,i])/n_replicas
+            replica_errors[i] = numpy.sqrt(numpy.sum((self.replica_params[:,i] - replica_means[i])**2 / n_replicas))
+
+        self.fitted_errors = [replica_errors[0], replica_errors[1], replica_errors[2], replica_errors[3], replica_errors[4]]
+
+        print('Calculated replica params')
+        print(datetime.now())
+
+        for i in range(0, 5):
+            n, bins, patches = pyplot.hist(self.replica_params[:,i], 10)
+            bin_width = bins[1] - bins[0]
+            scale_factor = n_replicas * bin_width
+            normal_range = numpy.linspace(replica_means[i] - 4*replica_errors[i], replica_means[i] + 4*replica_errors[i], 100)
+            normal_values = scipy.stats.norm.pdf(normal_range, replica_means[i], replica_errors[i])
+            pyplot.plot(normal_range, normal_values * scale_factor)
+            pyplot.plot(self.fitted_params[i],1, marker='x', label='minuit value')
+            pyplot.plot(replica_means[i],1,marker='x', label='replica mean', color='C6')
+            pyplot.legend()
+            pyplot.show()
 
     def __init__(self, pair, n_randparams=10, n_simulations=10, read_start=0, read_steps='MAX'):
         self.pair = pair
@@ -205,6 +254,7 @@ class LeastSquares(class_ngarch.NGARCH):
         else:
             self.read_steps = read_steps
 
+        print(datetime.now())
         self.rand_params()
         self.run_simulations()
         self.optimise_Rfast()

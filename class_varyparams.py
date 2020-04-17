@@ -26,7 +26,7 @@ class VaryParams():
             #elif self.sampled_params[i,3] > 100:
             #    self.sampled_params[i,3] = 100
             if self.sampled_params[i,4] < 0:
-                self.sampled_params[i,4] = 0
+                self.sampled_params[i,4] = 1e-8
             elif self.sampled_params[i,4] > 1:
                 self.sampled_params[i,4] = 1
             
@@ -46,14 +46,24 @@ class VaryParams():
             self.means[j] = numpy.sum(self.replica_means[:,j]) / self.n_replicas
             self.stdevs[j] = numpy.sum(self.replica_stdevs[:,j]) / self.n_replicas
 
-    def __init__(self, pair, params, param_errors, n_replicas, run_start, run_length):
+    def reduced_chisquared(self):
+        self.red_chi_array = numpy.zeros(self.run_length)
+        for i in range(0, self.run_length):
+            self.red_chi_array[i] = ((self.pair.data[self.run_start + i] - self.means[i]) / self.stdevs[i])** 2 / self.run_length
+        self.red_chisquared = numpy.nansum(self.red_chi_array)
+
+    def __init__(self, pair, params, param_errors, n_replicas=100, run_start=0, run_length='MAX'):
         self.pair = pair
         self.params = params
         self.param_errors = param_errors
         self.n_replicas = n_replicas
         self.run_start = run_start
-        self.run_length = run_length
+        if run_length=='MAX':
+            self.run_length = len(self.pair.data) - self.run_start
+        else:
+            self.run_length = run_length
 
         self.sample_params()
         self.run_replicas()
         self.calc_means()
+        self.reduced_chisquared()
