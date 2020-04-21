@@ -5,6 +5,9 @@ import matplotlib.pyplot as pyplot
 import iminuit
 from datetime import datetime
 import scipy
+from matplotlib.ticker import (MultipleLocator, FormatStrFormatter, AutoMinorLocator)
+import matplotlib.ticker as ticker
+import matplotlib
 
 class Rfast(class_ngarch.NGARCH):
     def rand_params(self):
@@ -13,7 +16,7 @@ class Rfast(class_ngarch.NGARCH):
         self.alphamin, self.alphamax = 0, 1e-5
         self.betamin, self.betamax = 0, 1
         self.gammamin, self.gammamax = -500, 500
-        self.deltamin, self.deltamax = -10, 10
+        self.deltamin, self.deltamax = -30, 30
         self.omegamin, self.omegamax = 1e-8, 1e-4
         #randomly select values for each parameter within their ranges, seeds for repeatability
         for i in range(0, self.n_randparams):
@@ -140,6 +143,7 @@ class Rfast(class_ngarch.NGARCH):
                                                 )
         m.migrad()
         self.fitted_params = [m.values[0], m.values[1], m.values[2], m.values[3], m.values[4]]
+        #print(self.fitted_params)
         #self.fitted_errors = [m.errors[0], m.errors[1], m.errors[2], m.errors[3], m.errors[4]]
         #print(m.fval)
         #print(m.values)
@@ -153,7 +157,7 @@ class Rfast(class_ngarch.NGARCH):
                             delta * (self.v_D + self.v_DD*delta + self.v_DO*omega) + \
                             omega * (self.v_O + self.v_OO*omega)
         
-        Rfast_chi_sum = numpy.nansum((self.pair.data[self.read_start:self.read_start+self.read_steps] - Rfast_binvalues)**2)
+        self.Rfast_sqdiff_sum = numpy.nansum((self.pair.data[self.read_start:self.read_start+self.read_steps] - Rfast_binvalues)**2)
         
         #Penalty term to enforce parameter bounds
         penalty = 0.0
@@ -163,26 +167,25 @@ class Rfast(class_ngarch.NGARCH):
         elif crit < 0:
             penalty = numpy.exp(-10000 * crit) - 1
 
-        weighted_Rfast_chi_sum = Rfast_chi_sum + penalty
-        if weighted_Rfast_chi_sum > 1000000:
-            weighted_Rfast_chi_sum = 1000000
+        self.weighted_Rfast_sqdiff_sum = self.Rfast_sqdiff_sum + penalty
+        if self.weighted_Rfast_sqdiff_sum > 1000000:
+            self.weighted_Rfast_sqdiff_sum = 1000000
 
-        #print(weighted_Rfast_chi_sum)
-        return weighted_Rfast_chi_sum
+        #print(weighted_Rfast_sqdiff_sum)
+        return self.weighted_Rfast_sqdiff_sum
 
     def calc_param_errors(self):
         print('calculating errors...')
         print(datetime.now())
-        n_replicas = 1000
-        bin_param_replicas = numpy.zeros((n_replicas, self.read_steps, 21))
-        self.replica_params = numpy.zeros((n_replicas, 5))
+        bin_param_replicas = numpy.zeros((self.n_replicas, self.read_steps, 21))
+        self.replica_params = numpy.zeros((self.n_replicas, 5))
 
         for j in range(0, self.read_steps):
             for k in range(0, 21):
                 numpy.random.seed(1000*j + k)
-                bin_param_replicas[:,j,k] = numpy.random.uniform(low=(self.bin_param_values[j,k]-self.bin_param_errors[j,k]), high=(self.bin_param_values[j,k]+self.bin_param_errors[j,k]), size=n_replicas)
+                bin_param_replicas[:,j,k] = numpy.random.uniform(low=(self.bin_param_values[j,k]-self.bin_param_errors[j,k]), high=(self.bin_param_values[j,k]+self.bin_param_errors[j,k]), size=self.n_replicas)
 
-        for i in range(0, n_replicas):
+        for i in range(0, self.n_replicas):
             self.v_c, self.v_A, self.v_B = bin_param_replicas[i,:,0], bin_param_replicas[i,:,1], bin_param_replicas[i,:,2]
             self.v_G, self.v_D, self.v_O = bin_param_replicas[i,:,3], bin_param_replicas[i,:,4], bin_param_replicas[i,:,5]
             self.v_AA, self.v_AB, self.v_AG = bin_param_replicas[i,:,6], bin_param_replicas[i,:,7], bin_param_replicas[i,:,8]
@@ -224,30 +227,51 @@ class Rfast(class_ngarch.NGARCH):
         normal_range = numpy.zeros(5)
         normal_values = numpy.zeros(5)
         for i in range(0, 5):
-            replica_means[i] = numpy.sum(self.replica_params[:,i])/n_replicas
-            replica_errors[i] = numpy.sqrt(numpy.sum((self.replica_params[:,i] - replica_means[i])**2 / n_replicas))
+            replica_means[i] = numpy.sum(self.replica_params[:,i])/self.n_replicas
+            replica_errors[i] = numpy.sqrt(numpy.sum((self.replica_params[:,i] - replica_means[i])**2 / self.n_replicas))
 
         self.fitted_errors = [replica_errors[0], replica_errors[1], replica_errors[2], replica_errors[3], replica_errors[4]]
 
         print('Calculated replica params')
         print(datetime.now())
+        #print(self.fitted_params)
+        #print(self.fitted_errors)
 
-        for i in range(0, 5):
-            n, bins, patches = pyplot.hist(self.replica_params[:,i], 10)
-            bin_width = bins[1] - bins[0]
-            scale_factor = n_replicas * bin_width
-            normal_range = numpy.linspace(replica_means[i] - 4*replica_errors[i], replica_means[i] + 4*replica_errors[i], 100)
-            normal_values = scipy.stats.norm.pdf(normal_range, replica_means[i], replica_errors[i])
-            pyplot.plot(normal_range, normal_values * scale_factor)
-            pyplot.plot(self.fitted_params[i],1, marker='x', label='minuit value')
-            pyplot.plot(replica_means[i],1,marker='x', label='replica mean', color='C6')
-            pyplot.legend()
-            pyplot.show()
+        param_names = [r'$\alpha$', r'$\beta$', r'$\gamma$', r'$\delta$', r'$\omega$']
+        param_labels = [r'$\alpha_{fit} =$'+str("{0:1.3g}".format(self.fitted_params[0])), r'$\beta_{fit} =$'+str("{0:1.3g}".format(self.fitted_params[1])), r'$\gamma_{fit} =$'+str("{0:1.3g}".format(self.fitted_params[2])), r'$\delta_{fit} =$'+str("{0:1.3g}".format(self.fitted_params[3])), r'$\omega_{fit} =$'+str("{0:1.3g}".format(self.fitted_params[4]))]
+        #for i in range(0, 5):
+        #    pyplot.figure()
+        #    font = {'family' : 'Times New Roman',
+        #            'weight' : 'normal',
+        #            'size'   : 18}
+        #    matplotlib.rc('font', **font)
+        #    matplotlib.rc('xtick', labelsize=16) 
+        #    matplotlib.rc('ytick', labelsize=16)
+        #    n, bins, patches = pyplot.hist(self.replica_params[:,i], 20)
+        #
+        #    bin_width = bins[1] - bins[0]
+        #    scale_factor = self.n_replicas * bin_width
+        #    normal_range = numpy.linspace(replica_means[i] - 4*replica_errors[i], replica_means[i] + 4*replica_errors[i], 100)
+        #    normal_values = scipy.stats.norm.pdf(normal_range, replica_means[i], replica_errors[i])
+        #    pyplot.plot(normal_range, normal_values * scale_factor, color='C3')
+        #    pyplot.xlabel(param_names[i])
+        #    pyplot.ylabel('Frequency')
+            #pyplot.plot(self.fitted_params[i],1, marker='x', label='minuit value')
+            #pyplot.plot(replica_means[i],1,marker='x', label='replica mean', color='C6')
+        #    ax = pyplot.gca()
+        #    ax.xaxis.set_minor_locator(AutoMinorLocator(n=4))
+        #    ax.yaxis.set_minor_locator(AutoMinorLocator(n=2))
+        #    pyplot.text(0.9, 0.92, param_labels[i], horizontalalignment='center', verticalalignment='center', transform = ax.transAxes)
+        #    pyplot.text(0.9, 0.88, r'    $\mu =$'+str("{0:1.3g}".format(replica_means[i])), horizontalalignment='center', verticalalignment='center', transform = ax.transAxes)
+        #    pyplot.text(0.9, 0.84, r'   $\sigma =$'+str("{0:1.3g}".format(replica_errors[i])), horizontalalignment='center', verticalalignment='center', transform = ax.transAxes)
+            #pyplot.legend()
+        #    pyplot.show()
 
-    def __init__(self, pair, n_randparams=10, n_simulations=10, read_start=0, read_steps='MAX'):
+    def __init__(self, pair, n_randparams=10, n_simulations=10, n_error_replicas=1000, read_start=0, read_steps='MAX', calc_errors=False):
         self.pair = pair
         self.n_randparams = n_randparams
         self.n_simulations = n_simulations
+        self.n_replicas = n_error_replicas
         self.read_start = read_start
         if read_steps=='MAX':
             self.read_steps = len(self.pair.data) - self.read_start
@@ -258,5 +282,7 @@ class Rfast(class_ngarch.NGARCH):
         self.rand_params()
         self.run_simulations()
         self.optimise_Rfast()
+
         self.optimise_params()
-        self.calc_param_errors()
+        if calc_errors==True:
+            self.calc_param_errors()

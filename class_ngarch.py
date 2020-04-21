@@ -50,7 +50,7 @@ Order of parameters: [alpha, beta, gamma, delta, omega]
 
         for i in range(0, self.read_steps):
             self.LL[i] = 0.5 * (numpy.log(2*numpy.pi) + numpy.log(self.act_h[i]) + self.error[i]**2)
-        Total_LL = numpy.nansum(self.LL)
+        self.Total_LL = numpy.nansum(self.LL)
 
         #Penalty term to enforce parameter bounds
         penalty = 0.0
@@ -60,14 +60,14 @@ Order of parameters: [alpha, beta, gamma, delta, omega]
         elif crit < 0:
             penalty = numpy.exp(-10000 * crit) - 1
 
-        weighted_LL = Total_LL + penalty
-        if weighted_LL > 1000000:
-            weighted_LL = 1000000
+        self.weighted_LL = self.Total_LL + penalty
+        if self.weighted_LL > 1000000:
+            self.weighted_LL = 1000000
 
         #print([self.alpha, self.beta, self.gamma, self.delta, self.omega])
         #print(weighted_LL)
 
-        return weighted_LL
+        return self.weighted_LL
 
     #Class initialisation
     def __init__(self, pair, params, read_start=0, read_steps='MAX', forecast_start=0, forecast_steps='MAX'):
