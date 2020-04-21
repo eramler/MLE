@@ -53,8 +53,8 @@ class Rfast(class_ngarch.NGARCH):
                 #self.R_stdevs[i,k] = numpy.sqrt(numpy.sum((R_simvalues[:,k] - self.R_means[i,k])**2) / self.n_simulations)
         #print(self.R_means)
         #print(self.R_stdevs)
-        print('finished simulations')
-        print(datetime.now())
+        #print('finished simulations')
+        #print(datetime.now())
 
     def optimise_Rfast(self):
         #for clarity
@@ -116,7 +116,6 @@ class Rfast(class_ngarch.NGARCH):
         self.v_GG, self.v_GD, self.v_GO = self.bin_param_values[:,15], self.bin_param_values[:,16], self.bin_param_values[:,17]
         self.v_DD, self.v_DO, self.v_OO = self.bin_param_values[:,18], self.bin_param_values[:,19], self.bin_param_values[:,20]
 
-        self.initial_params = (1e-6, 0.5, 50, 1e-5, 1e-6)
         m = iminuit.Minuit(self.calc_params,
                             alpha = self.initial_params[0],
                             error_alpha = self.initial_params[0] / 10,
@@ -143,6 +142,18 @@ class Rfast(class_ngarch.NGARCH):
                                                 )
         m.migrad()
         self.fitted_params = [m.values[0], m.values[1], m.values[2], m.values[3], m.values[4]]
+
+        if m.fval < self.lowest_sqdiff:
+            self.lowest_sqdiff = m.fval
+            self.fitted_params = [m.values[0], m.values[1], m.values[2], m.values[3], m.values[4]]
+            self.initial_params = self.fitted_params
+            #limits max number of re-minimisations to 100
+            if self.iterations < 100:
+                self.iterations = self.iterations + 1
+                self.optimise_params()
+            else:
+                print('maximum number (100) of re-minimisations reached without finding a true minimum - but probably a good approximation')
+
         #print(self.fitted_params)
         #self.fitted_errors = [m.errors[0], m.errors[1], m.errors[2], m.errors[3], m.errors[4]]
         #print(m.fval)
@@ -175,8 +186,8 @@ class Rfast(class_ngarch.NGARCH):
         return self.weighted_Rfast_sqdiff_sum
 
     def calc_param_errors(self):
-        print('calculating errors...')
-        print(datetime.now())
+        #print('calculating errors...')
+        #print(datetime.now())
         bin_param_replicas = numpy.zeros((self.n_replicas, self.read_steps, 21))
         self.replica_params = numpy.zeros((self.n_replicas, 5))
 
@@ -194,6 +205,7 @@ class Rfast(class_ngarch.NGARCH):
             self.v_GG, self.v_GD, self.v_GO = bin_param_replicas[i,:,15], bin_param_replicas[i,:,16], bin_param_replicas[i,:,17]
             self.v_DD, self.v_DO, self.v_OO = bin_param_replicas[i,:,18], bin_param_replicas[i,:,19], bin_param_replicas[i,:,20]
 
+            self.initial_params = (1e-6, 0.5, 50, 1e-5, 1e-6)
             r = iminuit.Minuit(self.calc_params,
                             alpha = self.initial_params[0],
                             error_alpha = self.initial_params[0] / 10,
@@ -232,8 +244,8 @@ class Rfast(class_ngarch.NGARCH):
 
         self.fitted_errors = [replica_errors[0], replica_errors[1], replica_errors[2], replica_errors[3], replica_errors[4]]
 
-        print('Calculated replica params')
-        print(datetime.now())
+        #print('Calculated replica params')
+        #print(datetime.now())
         #print(self.fitted_params)
         #print(self.fitted_errors)
 
@@ -278,10 +290,14 @@ class Rfast(class_ngarch.NGARCH):
         else:
             self.read_steps = read_steps
 
-        print(datetime.now())
+        #print(datetime.now())
         self.rand_params()
         self.run_simulations()
         self.optimise_Rfast()
+
+        self.initial_params = (1e-6, 0.5, 50, 1e-5, 1e-6)
+        self.lowest_sqdiff = 10000000
+        self.iterations = 0
 
         self.optimise_params()
         if calc_errors==True:
